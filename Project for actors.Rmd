@@ -1,0 +1,179 @@
+---
+title: "Untitled"
+author: "Matt"
+date: "2024-11-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#http://www.omdbapi.com/?t=Inception&apikey=YOUR_API_KEY
+
+#http://www.omdbapi.com/?i=tt3896198&apikey=4edceee4
+```
+
+
+
+```{r}
+# Load necessary libraries
+library(httr)
+library(jsonlite)
+library(dplyr)
+
+# Define the API key and base URL
+api_key <- "4edceee4"
+base_url <- "http://www.omdbapi.com/"
+
+# Load the CSV file containing the movie list
+file_path <- "top_100.csv"  # Replace with the correct path
+movies_df <- read.csv(file_path)
+
+# Initialize an empty data frame to store results
+results <- data.frame(Title = character(), Actors = character(), stringsAsFactors = FALSE)
+
+# Loop through each movie title and fetch actor information
+for (movie_title in movies_df$Title) {
+  # Construct API URL
+  api_url <- paste0(base_url, "?t=", URLencode(movie_title), "&apikey=", api_key)
+  
+  # Make the API request
+  response <- GET(api_url)
+  
+  # Check if the response is successful
+  if (status_code(response) == 200) {
+    # Parse the JSON response
+    movie_data <- fromJSON(content(response, as = "text"))
+    
+    # Check if the movie exists in the API database
+    if (!is.null(movie_data$Title)) {
+      # Append title and actor information to the results data frame
+      results <- results %>% 
+        add_row(Title = movie_data$Title, Actors = movie_data$Actors)
+    } else {
+      # Append title with no actor information
+      results <- results %>% 
+        add_row(Title = movie_title, Actors = "Not Found")
+    }
+  } else {
+    # Append title with an error message
+    results <- results %>% 
+      add_row(Title = movie_title, Actors = "API Error")
+  }
+}
+
+# Save the results to a CSV file
+output_path <- "movie_actors.csv"  # Replace with your preferred path
+write.csv(results, output_path, row.names = FALSE)
+
+# Print the first few rows of the results
+head(results)
+
+```
+```{r}
+# Load required libraries
+library(httr)
+library(jsonlite)
+library(dplyr)
+library(stringr)
+
+# Define the OMDb API key and base URL
+api_key <- "4edceee4"  # Replace with your API key
+base_url <- "http://www.omdbapi.com/"
+
+# Load the CSV file containing the movie list
+file_path <- "top_100.csv"  # Replace with the correct path
+movies_df <- read.csv(file_path)
+
+# Initialize an empty data frame to store results
+results <- data.frame(
+  Title = character(),
+  Oscars_Won = numeric(),
+  Oscars_Nominated = numeric(),
+  Total_Wins = numeric(),
+  Total_Nominations = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Function to parse awards string
+parse_awards <- function(awards_text) {
+  # Initialize counters
+  oscars_won <- 0
+  oscars_nominated <- 0
+  total_wins <- 0
+  total_nominations <- 0
+  
+  # Extract Oscars won
+  if (grepl("Won (\\d+) Oscar", awards_text)) {
+    oscars_won <- as.numeric(gsub(".*Won (\\d+) Oscar.*", "\\1", awards_text))
+  }
+  
+  # Extract Oscars nominated
+  if (grepl("Nominated for (\\d+) Oscar", awards_text)) {
+    oscars_nominated <- as.numeric(gsub(".*Nominated for (\\d+) Oscar.*", "\\1", awards_text))
+  }
+  
+  # Extract total wins
+  if (grepl("(\\d+) wins", awards_text)) {
+    total_wins <- as.numeric(gsub(".*?(\\d+) wins.*", "\\1", awards_text))
+  }
+  
+  # Extract total nominations
+  if (grepl("(\\d+) nominations", awards_text)) {
+    total_nominations <- as.numeric(gsub(".*?(\\d+) nominations.*", "\\1", awards_text))
+  }
+  
+  # Return as a named vector
+  return(c(
+    Oscars_Won = oscars_won,
+    Oscars_Nominated = oscars_nominated,
+    Total_Wins = total_wins,
+    Total_Nominations = total_nominations
+  ))
+}
+
+# Loop through each movie title and fetch awards data
+for (movie_title in movies_df$Title) {
+  # Construct API URL
+  api_url <- paste0(base_url, "?t=", URLencode(movie_title), "&apikey=", api_key)
+  
+  # Make the API request
+  response <- GET(api_url)
+  
+  if (status_code(response) == 200) {
+    data <- fromJSON(content(response, as = "text"))
+    
+    if (!is.null(data$Awards)) {
+      # Parse awards data
+      parsed_awards <- parse_awards(data$Awards)
+      results <- results %>%
+        add_row(
+          Title = data$Title,
+          Oscars_Won = parsed_awards["Oscars_Won"],
+          Oscars_Nominated = parsed_awards["Oscars_Nominated"],
+          Total_Wins = parsed_awards["Total_Wins"],
+          Total_Nominations = parsed_awards["Total_Nominations"]
+        )
+    } else {
+      # Add movie with no awards data
+      results <- results %>%
+        add_row(Title = movie_title, Oscars_Won = 0, Oscars_Nominated = 0, Total_Wins = 0, Total_Nominations = 0)
+    }
+  } else {
+    # Handle API errors
+    results <- results %>%
+      add_row(Title = movie_title, Oscars_Won = NA, Oscars_Nominated = NA, Total_Wins = NA, Total_Nominations = NA)
+  }
+}
+
+# Save the results to a CSV file
+output_path <- "oscars_awards_with_totals.csv"  # Replace with your preferred path
+write.csv(results, output_path, row.names = FALSE)
+
+# Print the first few rows of the results
+head(results)
+
+```
+
